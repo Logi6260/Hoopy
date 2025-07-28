@@ -2,5 +2,5 @@ services:
   - type: static
     name: bounce-ball-hoop-game
     env: static
-    staticPublishPath: /
+    staticPublishPath: ./
     branch: main
