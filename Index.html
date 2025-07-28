@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Bounce Ball Hoop Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+
+  body, html {
+    margin: 0; padding: 0; height: 100%;
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    font-family: 'Poppins', sans-serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  #game-container {
+    position: relative;
+    width: 100vw;
+    max-width: 480px;
+    height: 600px;
+    background: radial-gradient(circle at bottom, #1e3c72, #2a5298);
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(255, 75, 43, 0.7);
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    background: transparent;
+  }
+
+  #start-screen {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+  }
+
+  #start-button {
+    background: #ff4b2b;
+    border: none;
+    padding: 20px 40px;
+    font-size: 1.5rem;
+    color: white;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 6px 12px rgba(255,75,43,0.6);
+    transition: background 0.3s ease;
+  }
+  #start-button:hover {
+    background: #ff6039;
+  }
+
+  #scoreboard {
+    margin-top: 15px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  /* Bounce button for mobile */
+  #bounce-button {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff4b2b;
+    border: none;
+    padding: 15px 35px;
+    font-size: 1.3rem;
+    border-radius: 50px;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 6px 12px rgba(255,75,43,0.6);
+    user-select: none;
+  }
+  #bounce-button:active {
+    background: #ff6039;
+  }
+</style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="480" height="600"></canvas>
+    <div id="start-screen">
+      <h1>Bounce Ball Hoop</h1>
+      <button id="start-button">Start Game</button>
+    </div>
+    <button id="bounce-button" style="display:none;">Bounce!</button>
+  </div>
+  <div id="scoreboard">Score: 0 | Level: 1</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  const startScreen = document.getElementById('start-screen');
+  const startButton = document.getElementById('start-button');
+  const bounceButton = document.getElementById('bounce-button');
+  const scoreboard = document.getElementById('scoreboard');
+
+  let gameStarted = false;
+  let score = 0;
+  let level = 1;
+
+  const gravity = 0.6;
+  let scrollSpeed = 1.5;
+
+  // Ball properties
+  const ballRadius = 20;
+  let ball = {
+    x: canvas.width / 4,
+    y: canvas.height - ballRadius - 10,
+    vy: 0,
+    onGround: true,
+  };
+
+  // Hoop properties
+  const hoopWidth = 100;
+  const hoopHeight = 20;
+  let hoops = [];
+  let scrollX = 0;
+
+  // Timing
+  let lastTimestamp = 0;
+
+  function randomHeight() {
+    return Math.random() * (canvas.height - 250) + 150;
+  }
+
+  // Create initial hoops spaced apart
+  function generateHoops() {
+    hoops = [];
+    for (let i = 1; i <= 5; i++) {
+      hoops.push({
+        x: i * 300,
+        y: randomHeight(),
+        passed: false,
+      });
+    }
+  }
+
+  function resetGame() {
+    score = 0;
+    level = 1;
+    scrollSpeed = 1.5;
+    ball.x = canvas.width / 4;
+    ball.y = canvas.height - ballRadius - 10;
+    ball.vy = 0;
+    ball.onGround = true;
+    scrollX = 0;
+    generateHoops();
+    updateScoreboard();
+  }
+
+  function updateScoreboard() {
+    scoreboard.textContent = `Score: ${score} | Level: ${level}`;
+  }
+
+  function drawBall() {
+    ctx.beginPath();
+    const gradient = ctx.createRadialGradient(ball.x - 10, ball.y - 10, 5, ball.x, ball.y, ballRadius);
+    gradient.addColorStop(0, '#ff4b2b');
+    gradient.addColorStop(1, '#ff416c');
+    ctx.fillStyle = gradient;
+    ctx.shadowColor = '#ff4b2b';
+    ctx.shadowBlur = 15;
+    ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  function drawHoop(hoop) {
+    // Hoop base
+    ctx.beginPath();
+    ctx.fillStyle = '#fff100';
+    ctx.shadowColor = '#fff100';
+    ctx.shadowBlur = 15;
+    ctx.fillRect(hoop.x - scrollX, hoop.y, hoopWidth, hoopHeight);
+    ctx.closePath();
+
+    // Hoop rim (top arc)
+    ctx.beginPath();
+    ctx.strokeStyle = '#f9d71c';
+    ctx.lineWidth = 5;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#f9d71c';
+    ctx.arc(hoop.x + hoopWidth / 2 - scrollX, hoop.y, hoopWidth / 2, 0, Math.PI, true);
+    ctx.stroke();
+    ctx.closePath();
+  }
+
+  function drawBackground() {
+    // Gradient background handled by CSS, clear canvas here
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function updateBall() {
+    ball.vy += gravity;
+    ball.y += ball.vy;
+
+    if (ball.y + ballRadius >= canvas.height - 10) {
+      ball.y = canvas.height - ballRadius - 10;
+      ball.vy = 0;
+      ball.onGround = true;
+    } else {
+      ball.onGround = false;
+    }
+  }
+
+  function checkHoopPass(hoop) {
+    const ballLeft = ball.x - ballRadius;
+    const ballRight = ball.x + ballRadius;
+    const hoopLeft = hoop.x - scrollX;
+    const hoopRight = hoop.x - scrollX + hoopWidth;
+    const hoopTop = hoop.y;
+    const hoopBottom = hoop.y + hoopHeight;
+
+    // Check if ball passes through hoop horizontally and vertically approx near hoop
+    if (!hoop.passed &&
+      ballRight > hoopLeft + 20 &&
+      ballLeft < hoopRight - 20 &&
+      ball.y + ballRadius > hoopTop &&
+      ball.y - ballRadius < hoopBottom
+    ) {
+      hoop.passed = true;
+      score++;
+      updateScoreboard();
+      if(score % 5 === 0) {
+        level++;
+        scrollSpeed += 0.5; // increase speed every 5 points
+      }
+    }
+  }
+
+  function updateHoops() {
+    // Move hoops left as we scroll
+    scrollX += scrollSpeed;
+
+    // Remove hoops that moved off screen and add new ones
+    if(hoops.length > 0 && hoops[0].x - scrollX + hoopWidth < 0) {
+      hoops.shift();
+      let lastX = hoops.length > 0 ? hoops[hoops.length -1].x : scrollX + canvas.width;
+      hoops.push({x: lastX + 300, y: randomHeight(), passed: false});
+    }
+  }
+
+  function gameLoop(timestamp) {
+    if (!gameStarted) return;
+
+    const delta = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    drawBackground();
+
+    updateHoops();
+    hoops.forEach(drawHoop);
+
+    updateBall();
+    drawBall();
+
+    hoops.forEach(checkHoopPass);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Controls
+  function bounce() {
+    if (ball.onGround) {
+      ball.vy = -12 - level; // stronger bounce on higher levels
+      ball.onGround = false;
+    }
+  }
+
+  startButton.addEventListener('click', () => {
+    startScreen.style.display = 'none';
+    bounceButton.style.display = 'block';
+    resetGame();
+    gameStarted = true;
+    lastTimestamp = performance.now();
+    requestAnimationFrame(gameLoop);
+  });
+
+  bounceButton.addEventListener('click', bounce);
+
+  // Also allow tap anywhere on canvas to bounce (mobile-friendly)
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    bounce();
+  });
+
+  // Keyboard control for desktop
+  window.addEventListener('keydown', e => {
+    if(e.code === 'Space') bounce();
+  });
+
+})();
+</script>
+</body>
+</html>
