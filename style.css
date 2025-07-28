@@ -1,0 +1,44 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(to bottom right, #ff6b6b, #fddb92);
+  color: white;
+}
+
+.start-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+#startButton {
+  padding: 15px 30px;
+  font-size: 1.5rem;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}
+
+canvas {
+  display: block;
+  background: #111;
+}
+
+.score {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 1.5rem;
+  z-index: 1;
+}
