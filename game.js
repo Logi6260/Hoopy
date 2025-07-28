@@ -1,167 +1,176 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let ball = {
-  x: 100,
-  y: canvas.height / 2,
-  radius: 15,
-  velocity: 0,
-  gravity: 0.5,
-  bouncePower: -9 // Smaller bounce height
-};
+let ball, hoops, score, gameSpeed, gameRunning, hoopTimer, hoopCount, gapSize;
 
-let hoops = [];
-let hoopSpacing = 300;
-let hoopSpeed = 2;
-let hoopCount = 0;
-let gapSize = 200; // Start easy
+const gravity = 0.5;
+const bouncePower = -9;
+const hoopSpacing = 250;
 const minGapSize = 90;
-const gapShrink = 10;
-
-let score = 0;
-let level = 1;
-let started = false;
-let lastHoopX = canvas.width + 200;
-
-document.getElementById('startBtn').addEventListener('click', startGame);
-
-function startGame() {
-  started = true;
-  document.getElementById('startScreen').style.display = 'none';
-  resetGame();
-  requestAnimationFrame(gameLoop);
-}
+const gapShrinkRate = 10;
+const initialGapSize = 200;
 
 function resetGame() {
-  ball.y = canvas.height / 2;
-  ball.velocity = 0;
+  ball = {
+    x: 100,
+    y: canvas.height / 2,
+    radius: 15,
+    dy: 0
+  };
   hoops = [];
   score = 0;
-  level = 1;
   hoopCount = 0;
-  gapSize = 200;
-  lastHoopX = canvas.width + 200;
-  for (let i = 0; i < 5; i++) {
-    generateHoop(lastHoopX + i * hoopSpacing);
+  gameSpeed = 2;
+  gapSize = initialGapSize;
+  hoopTimer = 0;
+  gameRunning = true;
+}
+
+function drawBall() {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffcc00";
+  ctx.fill();
+  ctx.closePath();
+}
+
+function drawHoop(hoop) {
+  ctx.fillStyle = "#00eaff";
+  const postWidth = 10; // thinner hoops
+  ctx.fillRect(hoop.x, 0, postWidth, hoop.top);
+  ctx.fillRect(hoop.x, hoop.bottom, postWidth, canvas.height - hoop.bottom);
+}
+
+function createHoop() {
+  const minHeight = 50;
+  const maxHeight = canvas.height - gapSize - 50;
+  const top = Math.floor(Math.random() * (maxHeight - minHeight) + minHeight);
+  const bottom = top + gapSize;
+
+  hoops.push({ x: canvas.width, top, bottom });
+}
+
+function updateHoops() {
+  for (let i = 0; i < hoops.length; i++) {
+    hoops[i].x -= gameSpeed;
+
+    if (!hoops[i].scored && hoops[i].x + 20 < ball.x) {
+      hoops[i].scored = true;
+      score++;
+      hoopCount++;
+
+      if (hoopCount % 10 === 0 && gapSize > minGapSize) {
+        gapSize -= gapShrinkRate;
+      }
+
+      if (hoopCount % 15 === 0) {
+        gameSpeed += 0.5;
+      }
+    }
+
+    if (hoops[i].x + 20 < 0) {
+      hoops.splice(i, 1);
+      i--;
+    }
+  }
+
+  hoopTimer++;
+  if (hoopTimer > hoopSpacing) {
+    createHoop();
+    hoopTimer = 0;
   }
 }
 
-function generateHoop(x) {
-  const minY = 100;
-  const maxY = canvas.height - 100 - gapSize;
-  const topHeight = Math.floor(Math.random() * (maxY - minY) + minY);
+function checkCollision() {
+  for (let hoop of hoops) {
+    const inHoopX = ball.x + ball.radius > hoop.x && ball.x - ball.radius < hoop.x + 10;
+    const hitTop = ball.y - ball.radius < hoop.top;
+    const hitBottom = ball.y + ball.radius > hoop.bottom;
 
-  hoops.push({
-    x,
-    topHeight,
-    width: 20 // thin hoops
-  });
+    if (inHoopX && (hitTop || hitBottom)) {
+      return true;
+    }
+  }
 
-  lastHoopX = x;
+  return ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height;
+}
+
+function drawScore() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "24px Arial";
+  ctx.fillText("Score: " + score, 20, 40);
 }
 
 function update() {
-  // Ball physics
-  ball.velocity += ball.gravity;
-  ball.y += ball.velocity;
+  if (!gameRunning) return;
 
-  // Prevent going off-screen bottom
-  if (ball.y + ball.radius > canvas.height) {
-    ball.y = canvas.height - ball.radius;
-    ball.velocity = 0;
+  ball.dy += gravity;
+  ball.y += ball.dy;
+
+  updateHoops();
+
+  if (checkCollision()) {
+    gameRunning = false;
+    showStartScreen("Game Over! Tap to restart");
   }
 
-  // Update hoops
-  hoops.forEach((hoop) => {
-    hoop.x -= hoopSpeed;
-  });
-
-  // Remove passed hoops & add new ones
-  if (hoops[0].x + hoops[0].width < 0) {
-    hoops.shift();
-    score++;
-    hoopCount++;
-    if (hoopCount % 10 === 0 && gapSize > minGapSize) {
-      gapSize = Math.max(minGapSize, gapSize - gapShrink);
-      level++;
-    }
-    generateHoop(lastHoopX + hoopSpacing);
-  }
-
-  // Collision detection
-  hoops.forEach((hoop) => {
-    const inHoop = ball.x + ball.radius > hoop.x && ball.x - ball.radius < hoop.x + hoop.width;
-    const hitTop = ball.y - ball.radius < hoop.topHeight;
-    const hitBottom = ball.y + ball.radius > hoop.topHeight + gapSize;
-    if (inHoop && (hitTop || hitBottom)) {
-      gameOver();
-    }
-  });
-
-  // Prevent going off the top
-  if (ball.y - ball.radius < 0) {
-    ball.y = ball.radius;
-    ball.velocity = 0;
-  }
+  draw();
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Draw ball
-  ctx.beginPath();
-  ctx.fillStyle = '#f1c40f';
-  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Draw hoops
-  hoops.forEach((hoop) => {
-    ctx.fillStyle = '#e74c3c';
-    // Top part
-    ctx.fillRect(hoop.x, 0, hoop.width, hoop.topHeight);
-    // Bottom part
-    ctx.fillRect(hoop.x, hoop.topHeight + gapSize, hoop.width, canvas.height);
-  });
-
-  // Draw score
-  ctx.fillStyle = '#fff';
-  ctx.font = '24px Arial';
-  ctx.fillText(`Score: ${score}`, 20, 30);
-  ctx.fillText(`Level: ${level}`, 20, 60);
+  drawBall();
+  hoops.forEach(drawHoop);
+  drawScore();
 }
 
-function gameLoop() {
-  if (!started) return;
+function loop() {
   update();
-  draw();
-  requestAnimationFrame(gameLoop);
-}
-
-function gameOver() {
-  started = false;
-  alert(`Game Over!\nScore: ${score}`);
-  document.getElementById('startScreen').style.display = 'flex';
+  requestAnimationFrame(loop);
 }
 
 function bounce() {
-  if (!started) return;
-  ball.velocity = ball.bouncePower;
+  if (gameRunning) {
+    ball.dy = bouncePower;
+  }
 }
 
-// Controls
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space') bounce();
-});
-canvas.addEventListener('click', bounce);
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  bounce();
-}, { passive: false });
+function showStartScreen(text = "Tap to Start") {
+  const overlay = document.getElementById("startOverlay");
+  overlay.style.display = "flex";
+  overlay.innerText = text;
+}
 
-window.addEventListener('resize', () => {
+function hideStartScreen() {
+  const overlay = document.getElementById("startOverlay");
+  overlay.style.display = "none";
+}
+
+canvas.addEventListener("touchstart", () => {
+  if (!gameRunning) {
+    hideStartScreen();
+    resetGame();
+  } else {
+    bounce();
+  }
+});
+
+canvas.addEventListener("mousedown", () => {
+  if (!gameRunning) {
+    hideStartScreen();
+    resetGame();
+  } else {
+    bounce();
+  }
+});
+
+window.addEventListener("resize", () => {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 });
+
+showStartScreen();
+loop();
