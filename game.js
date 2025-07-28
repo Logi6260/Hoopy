@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 
 let width, height;
 function resize() {
-  width = window.innerWidth;
+  width = window.innerWidth; 
   height = window.innerHeight;
   canvas.width = width;
   canvas.height = height;
@@ -20,36 +20,39 @@ const bouncePower = -12;
 let scrollSpeed = 3;
 let hoopCount = 0;
 
-let gapSize = 150;           // Start big gap (vertical)
-const minGapSize = 70;       // Minimum vertical gap
-const gapDecreaseStep = 10;  // Decrease gap every 10 hoops
+let gapSize = 150;
+const minGapSize = 70;
+const gapDecreaseStep = 10;
 
-const hoopWidth = 80;
-const hoopSpacing = 300;     // horizontal space between hoops
+const hoopWidth = 20; // 👈 Thinner hoops
+const hoopSpacing = 300;
 
-// Controls
-let isTouching = false;
-
-// Game state
 let gameStarted = false;
 let gameOver = false;
 
-window.addEventListener('touchstart', () => { if(gameStarted) isTouching = true; });
-window.addEventListener('touchend', () => { isTouching = false; });
-window.addEventListener('mousedown', () => { if(gameStarted) isTouching = true; });
-window.addEventListener('mouseup', () => { isTouching = false; });
+// Input control
+let bounceRequested = false;
 
-function randomGapPosition() {
-  const margin = gapSize / 2 + 40;
-  return Math.random() * (height - margin * 2) + margin;
+window.addEventListener('touchstart', handleJump);
+window.addEventListener('mousedown', handleJump);
+function handleJump() {
+  if (!gameStarted) {
+    gameStarted = true;
+    resetGame();
+  } else if (gameOver) {
+    resetGame();
+  } else {
+    bounceRequested = true;
+  }
 }
 
-// We'll store gap size per hoop so hoops keep their gap even if gapSize changes later
+// Hoops
 const hoops = [];
 let scrollX = 0;
 
 function createHoop(x) {
-  const gapCenter = randomGapPosition();
+  const margin = gapSize / 2 + 40;
+  const gapCenter = Math.random() * (height - margin * 2) + margin;
   return { x, gapCenter, gapSizeCurrent: gapSize };
 }
 
@@ -88,7 +91,6 @@ function drawHoop(hoop) {
 
   // Top bar
   ctx.fillRect(x, 0, hoopWidth, gapTop);
-
   // Bottom bar
   ctx.fillRect(x, gapBottom, hoopWidth, height - gapBottom);
 
@@ -96,20 +98,21 @@ function drawHoop(hoop) {
 }
 
 function drawScore() {
-  ctx.fillStyle = '#222';
+  ctx.fillStyle = '#fff';
   ctx.font = '24px Arial';
   ctx.fillText(`Score: ${hoopCount}`, 20, 40);
 }
 
 function updatePhysics() {
-  if (isTouching) {
+  if (bounceRequested) {
     ballVelocity = bouncePower;
-  } else {
-    ballVelocity += gravity;
+    bounceRequested = false;
   }
+
+  ballVelocity += gravity;
   ballY += ballVelocity;
 
-  // Keep ball inside canvas vertically
+  // Prevent going out of bounds
   if (ballY + ballRadius > height) {
     ballY = height - ballRadius;
     ballVelocity = 0;
@@ -124,7 +127,6 @@ function checkCollision() {
   for (const hoop of hoops) {
     const hoopX = hoop.x - scrollX;
     if (hoopX < 100 + ballRadius && hoopX + hoopWidth > 100 - ballRadius) {
-      // Check vertical collision using hoop's own gapSizeCurrent
       if (
         ballY - ballRadius < hoop.gapCenter - hoop.gapSizeCurrent / 2 ||
         ballY + ballRadius > hoop.gapCenter + hoop.gapSizeCurrent / 2
@@ -180,38 +182,8 @@ function resetGame() {
   gapSize = 150;
   initHoops();
   gameOver = false;
-  isTouching = false;
+  bounceRequested = false;
 }
-
-canvas.addEventListener('click', () => {
-  if (!gameStarted) {
-    gameStarted = true;
-    resetGame();
-  } else if (gameOver) {
-    resetGame();
-  } else {
-    isTouching = true;
-  }
-});
-canvas.addEventListener('touchstart', () => {
-  if (!gameStarted) {
-    gameStarted = true;
-    resetGame();
-  } else if (gameOver) {
-    resetGame();
-  } else {
-    isTouching = true;
-  }
-});
-canvas.addEventListener('touchend', () => {
-  isTouching = false;
-});
-canvas.addEventListener('mouseup', () => {
-  isTouching = false;
-});
-canvas.addEventListener('mouseleave', () => {
-  isTouching = false;
-});
 
 function gameLoop() {
   ctx.clearRect(0, 0, width, height);
