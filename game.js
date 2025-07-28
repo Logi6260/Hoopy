@@ -1,217 +1,167 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-let width, height;
-function resize() {
-  width = window.innerWidth; 
-  height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
-}
-window.addEventListener('resize', resize);
-resize();
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-const ballRadius = 20;
-let ballY = height / 2;
-let ballVelocity = 0;
-const gravity = 0.6;
-const bouncePower = -12;
+let ball = {
+  x: 100,
+  y: canvas.height / 2,
+  radius: 15,
+  velocity: 0,
+  gravity: 0.5,
+  bouncePower: -9 // Smaller bounce height
+};
 
-let scrollSpeed = 3;
+let hoops = [];
+let hoopSpacing = 300;
+let hoopSpeed = 2;
 let hoopCount = 0;
+let gapSize = 200; // Start easy
+const minGapSize = 90;
+const gapShrink = 10;
 
-let gapSize = 150;
-const minGapSize = 70;
-const gapDecreaseStep = 10;
+let score = 0;
+let level = 1;
+let started = false;
+let lastHoopX = canvas.width + 200;
 
-const hoopWidth = 20; // 👈 Thinner hoops
-const hoopSpacing = 300;
+document.getElementById('startBtn').addEventListener('click', startGame);
 
-let gameStarted = false;
-let gameOver = false;
-
-// Input control
-let bounceRequested = false;
-
-window.addEventListener('touchstart', handleJump);
-window.addEventListener('mousedown', handleJump);
-function handleJump() {
-  if (!gameStarted) {
-    gameStarted = true;
-    resetGame();
-  } else if (gameOver) {
-    resetGame();
-  } else {
-    bounceRequested = true;
-  }
-}
-
-// Hoops
-const hoops = [];
-let scrollX = 0;
-
-function createHoop(x) {
-  const margin = gapSize / 2 + 40;
-  const gapCenter = Math.random() * (height - margin * 2) + margin;
-  return { x, gapCenter, gapSizeCurrent: gapSize };
-}
-
-function updateHoopGap() {
-  if (hoopCount > 0 && hoopCount % 10 === 0) {
-    gapSize = Math.max(minGapSize, gapSize - gapDecreaseStep);
-  }
-}
-
-function initHoops() {
-  hoops.length = 0;
-  const initialHoops = Math.ceil(width / hoopSpacing) + 3;
-  for (let i = 0; i < initialHoops; i++) {
-    hoops.push(createHoop(i * hoopSpacing + width));
-  }
-}
-
-function drawBall() {
-  ctx.beginPath();
-  ctx.fillStyle = '#ff4444';
-  ctx.shadowColor = '#ff8888';
-  ctx.shadowBlur = 20;
-  ctx.arc(100, ballY, ballRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-}
-
-function drawHoop(hoop) {
-  const x = hoop.x - scrollX;
-  const gapTop = hoop.gapCenter - hoop.gapSizeCurrent / 2;
-  const gapBottom = hoop.gapCenter + hoop.gapSizeCurrent / 2;
-
-  ctx.fillStyle = '#ffcc00';
-  ctx.shadowColor = '#ffaa00';
-  ctx.shadowBlur = 10;
-
-  // Top bar
-  ctx.fillRect(x, 0, hoopWidth, gapTop);
-  // Bottom bar
-  ctx.fillRect(x, gapBottom, hoopWidth, height - gapBottom);
-
-  ctx.shadowBlur = 0;
-}
-
-function drawScore() {
-  ctx.fillStyle = '#fff';
-  ctx.font = '24px Arial';
-  ctx.fillText(`Score: ${hoopCount}`, 20, 40);
-}
-
-function updatePhysics() {
-  if (bounceRequested) {
-    ballVelocity = bouncePower;
-    bounceRequested = false;
-  }
-
-  ballVelocity += gravity;
-  ballY += ballVelocity;
-
-  // Prevent going out of bounds
-  if (ballY + ballRadius > height) {
-    ballY = height - ballRadius;
-    ballVelocity = 0;
-  }
-  if (ballY - ballRadius < 0) {
-    ballY = ballRadius;
-    ballVelocity = 0;
-  }
-}
-
-function checkCollision() {
-  for (const hoop of hoops) {
-    const hoopX = hoop.x - scrollX;
-    if (hoopX < 100 + ballRadius && hoopX + hoopWidth > 100 - ballRadius) {
-      if (
-        ballY - ballRadius < hoop.gapCenter - hoop.gapSizeCurrent / 2 ||
-        ballY + ballRadius > hoop.gapCenter + hoop.gapSizeCurrent / 2
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function removePassedHoops() {
-  while (hoops.length && hoops[0].x - scrollX + hoopWidth < 0) {
-    hoops.shift();
-    hoopCount++;
-    updateHoopGap();
-    hoops.push(createHoop(hoops[hoops.length - 1].x + hoopSpacing));
-  }
-}
-
-function drawStartScreen() {
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = '#fff';
-  ctx.font = '48px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('Hoopy!', width / 2, height / 2 - 40);
-
-  ctx.font = '28px Arial';
-  ctx.fillText('Tap to Start', width / 2, height / 2 + 20);
-}
-
-function drawGameOver() {
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = '#fff';
-  ctx.font = '48px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('Game Over!', width / 2, height / 2 - 20);
-
-  ctx.font = '28px Arial';
-  ctx.fillText(`Final Score: ${hoopCount}`, width / 2, height / 2 + 30);
-  ctx.fillText('Tap to Restart', width / 2, height / 2 + 70);
-}
-
-function resetGame() {
-  ballY = height / 2;
-  ballVelocity = 0;
-  scrollX = 0;
-  hoopCount = 0;
-  gapSize = 150;
-  initHoops();
-  gameOver = false;
-  bounceRequested = false;
-}
-
-function gameLoop() {
-  ctx.clearRect(0, 0, width, height);
-
-  if (!gameStarted) {
-    drawStartScreen();
-  } else {
-    if (!gameOver) {
-      scrollX += scrollSpeed;
-      updatePhysics();
-      removePassedHoops();
-
-      if (checkCollision()) {
-        gameOver = true;
-      }
-    }
-
-    hoops.forEach(drawHoop);
-    drawBall();
-    drawScore();
-
-    if (gameOver) {
-      drawGameOver();
-    }
-  }
-
+function startGame() {
+  started = true;
+  document.getElementById('startScreen').style.display = 'none';
+  resetGame();
   requestAnimationFrame(gameLoop);
 }
 
-initHoops();
-gameLoop();
+function resetGame() {
+  ball.y = canvas.height / 2;
+  ball.velocity = 0;
+  hoops = [];
+  score = 0;
+  level = 1;
+  hoopCount = 0;
+  gapSize = 200;
+  lastHoopX = canvas.width + 200;
+  for (let i = 0; i < 5; i++) {
+    generateHoop(lastHoopX + i * hoopSpacing);
+  }
+}
+
+function generateHoop(x) {
+  const minY = 100;
+  const maxY = canvas.height - 100 - gapSize;
+  const topHeight = Math.floor(Math.random() * (maxY - minY) + minY);
+
+  hoops.push({
+    x,
+    topHeight,
+    width: 20 // thin hoops
+  });
+
+  lastHoopX = x;
+}
+
+function update() {
+  // Ball physics
+  ball.velocity += ball.gravity;
+  ball.y += ball.velocity;
+
+  // Prevent going off-screen bottom
+  if (ball.y + ball.radius > canvas.height) {
+    ball.y = canvas.height - ball.radius;
+    ball.velocity = 0;
+  }
+
+  // Update hoops
+  hoops.forEach((hoop) => {
+    hoop.x -= hoopSpeed;
+  });
+
+  // Remove passed hoops & add new ones
+  if (hoops[0].x + hoops[0].width < 0) {
+    hoops.shift();
+    score++;
+    hoopCount++;
+    if (hoopCount % 10 === 0 && gapSize > minGapSize) {
+      gapSize = Math.max(minGapSize, gapSize - gapShrink);
+      level++;
+    }
+    generateHoop(lastHoopX + hoopSpacing);
+  }
+
+  // Collision detection
+  hoops.forEach((hoop) => {
+    const inHoop = ball.x + ball.radius > hoop.x && ball.x - ball.radius < hoop.x + hoop.width;
+    const hitTop = ball.y - ball.radius < hoop.topHeight;
+    const hitBottom = ball.y + ball.radius > hoop.topHeight + gapSize;
+    if (inHoop && (hitTop || hitBottom)) {
+      gameOver();
+    }
+  });
+
+  // Prevent going off the top
+  if (ball.y - ball.radius < 0) {
+    ball.y = ball.radius;
+    ball.velocity = 0;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw ball
+  ctx.beginPath();
+  ctx.fillStyle = '#f1c40f';
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw hoops
+  hoops.forEach((hoop) => {
+    ctx.fillStyle = '#e74c3c';
+    // Top part
+    ctx.fillRect(hoop.x, 0, hoop.width, hoop.topHeight);
+    // Bottom part
+    ctx.fillRect(hoop.x, hoop.topHeight + gapSize, hoop.width, canvas.height);
+  });
+
+  // Draw score
+  ctx.fillStyle = '#fff';
+  ctx.font = '24px Arial';
+  ctx.fillText(`Score: ${score}`, 20, 30);
+  ctx.fillText(`Level: ${level}`, 20, 60);
+}
+
+function gameLoop() {
+  if (!started) return;
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+  started = false;
+  alert(`Game Over!\nScore: ${score}`);
+  document.getElementById('startScreen').style.display = 'flex';
+}
+
+function bounce() {
+  if (!started) return;
+  ball.velocity = ball.bouncePower;
+}
+
+// Controls
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') bounce();
+});
+canvas.addEventListener('click', bounce);
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  bounce();
+}, { passive: false });
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
