@@ -1,17 +1,12 @@
-/* Fullscreen canvas */
-html, body {
+body, html {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  height: 100%;
-  background: linear-gradient(135deg, #6a11cb, #2575fc);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(to bottom, #222, #444);
 }
 
 canvas {
   display: block;
-  background: linear-gradient(to bottom, #7f00ff, #e100ff);
-  box-shadow: 0 0 30px #ff66cc;
+  width: 100vw;
+  height: 100vh;
 }
